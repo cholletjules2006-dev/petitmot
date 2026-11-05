@@ -1,12 +1,14 @@
 {
   "name": "Petit Mot",
   "short_name": "Petit Mot",
-  "start_url": "./",
+  "id": "/petitmot/",
+  "start_url": "/petitmot/",
+  "scope": "/petitmot/",
   "display": "standalone",
   "background_color": "#f5f5f3",
   "theme_color": "#2f3b4c",
   "icons": [
-    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/petitmot/apple-touch-icon.png?v=2", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/petitmot/icone-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
