@@ -16,14 +16,86 @@
 <meta name="theme-color" content="#f5f5f3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141517" media="(prefers-color-scheme: dark)">
 <style>
-  html, body { margin: 0; height: 100%; background: #f5f5f3; }
-  @media (prefers-color-scheme: dark) { html, body { background: #141517; } }
+  :root { --fond: #f5f5f3; --texte: #1d1f23; --doux: #6e737b; --encre: #2f3b4c; }
+  @media (prefers-color-scheme: dark) { :root { --fond: #141517; --texte: #ececea; --doux: #9a9da3; --encre: #e6e8eb; } }
+  html, body { margin: 0; height: 100%; background: var(--fond); color: var(--texte);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  /* Écran de lancement, le temps que Google réponde */
+  #lancement { position: fixed; inset: 0; z-index: 2; background: var(--fond); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; transition: opacity .3s; }
+  #lancement.parti { opacity: 0; pointer-events: none; }
+  #lancement img { width: 76px; height: 76px; border-radius: 18px; }
+  #lancement p { margin: 0; font-size: 14px; color: var(--doux); text-align: center; padding: 0 30px; }
+  #lancement button { font: inherit; font-size: 15px; font-weight: 700; border: 0; border-radius: 999px; padding: 12px 22px;
+    background: var(--encre); color: var(--fond); }
+  .points span { display: inline-block; width: 7px; height: 7px; margin: 0 3px; border-radius: 50%; background: var(--doux);
+    animation: point 1s infinite ease-in-out; }
+  .points span:nth-child(2) { animation-delay: .15s; } .points span:nth-child(3) { animation-delay: .3s; }
+  @keyframes point { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  .cache { display: none !important; }
 </style>
 </head>
 <body>
+<div id="lancement">
+  <img src="https://cholletjules2006-dev.github.io/petitmot/apple-touch-icon.png?v=2" alt="">
+  <div class="points" id="points"><span></span><span></span><span></span></div>
+  <p id="lentTxt" class="cache">Google met du temps à répondre…</p>
+  <button id="reessayer" class="cache">Réessayer</button>
+</div>
+
 <!-- Le vrai site (Google Apps Script), affiché en plein écran -->
-<iframe src="https://script.google.com/macros/s/AKfycbw0udfEhmHZhj8lMmbkWIfF2ngnlaHuhXC2NGa6uZTuncu_vk9d_okwRYHMLN5S6p2s/exec"
-        title="Petit Mot" allow="clipboard-write"></iframe>
+<iframe id="app" title="Petit Mot" allow="clipboard-write"></iframe>
+
+<script>
+/* La page d'accueil garde la session et le dernier écran : Safari ne les garde pas pour le
+   site Google affiché dans ce cadre. Elle ne répond qu'au site Petit Mot (origine Google). */
+var SITE = 'https://script.google.com/macros/s/AKfycbw0udfEhmHZhj8lMmbkWIfF2ngnlaHuhXC2NGa6uZTuncu_vk9d_okwRYHMLN5S6p2s/exec';
+var ORIGINE_SITE = /^https:\/\/n-[a-z0-9-]+-script\.googleusercontent\.com$/;
+var K_JETON = 'petitmot_session', K_CACHE = 'petitmot_cache';
+function lire(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function ecrire(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+
+var pret = false, essais = 0, minuteur = null;
+function charger() {
+  essais++;
+  pret = false;
+  document.getElementById('app').src = SITE + (essais > 1 ? (SITE.indexOf('?') < 0 ? '?' : '&') + 'r=' + Date.now() : '');
+  clearTimeout(minuteur);
+  // Pas de réponse au bout de 12 s : on relance tout seul une fois, puis on propose de réessayer
+  minuteur = setTimeout(function () {
+    if (pret) return;
+    if (essais < 2) { charger(); return; }
+    document.getElementById('points').classList.add('cache');
+    document.getElementById('lentTxt').classList.remove('cache');
+    document.getElementById('reessayer').classList.remove('cache');
+  }, 12000);
+}
+document.getElementById('reessayer').onclick = function () {
+  essais = 0;
+  document.getElementById('points').classList.remove('cache');
+  document.getElementById('lentTxt').classList.add('cache');
+  this.classList.add('cache');
+  charger();
+};
+
+window.addEventListener('message', function (e) {
+  if (!ORIGINE_SITE.test(e.origin) || !e.data || typeof e.data.type !== 'string') return;
+  var d = e.data;
+  if (d.type === 'petitmot-demande') {
+    e.source.postMessage({ type: 'petitmot-donnees', token: lire(K_JETON), cache: lire(K_CACHE) }, e.origin);
+  } else if (d.type === 'petitmot-jeton' && typeof d.token === 'string' && d.token.length < 200) {
+    ecrire(K_JETON, d.token);
+  } else if (d.type === 'petitmot-cache' && typeof d.cache === 'string' && d.cache.length < 400000) {
+    ecrire(K_CACHE, d.cache);
+  } else if (d.type === 'petitmot-oubli') {
+    ecrire(K_JETON, null); ecrire(K_CACHE, null);
+  } else if (d.type === 'petitmot-pret') {
+    pret = true; clearTimeout(minuteur);
+    document.getElementById('lancement').classList.add('parti');
+  }
+});
+charger();
+</script>
 </body>
 </html>
